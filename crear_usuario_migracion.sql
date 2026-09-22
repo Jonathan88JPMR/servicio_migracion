@@ -28,6 +28,22 @@ GRANT SELECT ON dbo.MS_AP_DocumentoArchivo TO usr_migracion_adjuntos;
 GRANT SELECT, INSERT, UPDATE ON dbo.MS_AP_DocumentoArchivoTraslado TO usr_migracion_adjuntos;
 GO
 
+-- SPs del dashboard/api de migracion (Scripts/01_sp_ms_hass.sql)
+GRANT EXECUTE ON dbo.sp_mig_respuesta         TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_entornos          TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_entorno_activo    TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_config            TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_stats             TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_candidatos_ap     TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_archivos_ap       TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_archivos_ms       TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_preview_ap        TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_preview_ms        TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_pendientes        TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_pendientes_orden  TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_actualizar_lotes  TO usr_migracion_adjuntos;
+GO
+
 -- 3. Permisos en HASS_SPRING_PRUEBA (ERP Spring de pruebas)
 USE HASS_SPRING_PRUEBA;
 GO
@@ -40,6 +56,14 @@ GRANT SELECT, INSERT ON dbo.GD_Grupo TO usr_migracion_adjuntos;
 GRANT SELECT, INSERT ON dbo.GD_Archivo TO usr_migracion_adjuntos;
 GO
 
+-- SPs del dashboard/api de migracion (Scripts/02_sp_spring.sql)
+GRANT EXECUTE ON dbo.sp_mig_respuesta               TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_referencias             TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_claves_por_ref          TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_obligaciones_referencia TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_gd_prueba_count         TO usr_migracion_adjuntos;
+GO
+
 -- 4. Permisos en HP_SPRING_PRD (ERP Spring de produccion)
 USE HP_SPRING_PRD;
 GO
@@ -50,6 +74,14 @@ GO
 GRANT SELECT ON dbo.AP_Documentos TO usr_migracion_adjuntos;
 GRANT SELECT, INSERT ON dbo.GD_Grupo TO usr_migracion_adjuntos;
 GRANT SELECT, INSERT ON dbo.GD_Archivo TO usr_migracion_adjuntos;
+GO
+
+-- SPs del dashboard/api de migracion (Scripts/02_sp_spring.sql)
+GRANT EXECUTE ON dbo.sp_mig_respuesta               TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_referencias             TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_claves_por_ref          TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_obligaciones_referencia TO usr_migracion_adjuntos;
+GRANT EXECUTE ON dbo.sp_mig_gd_prueba_count         TO usr_migracion_adjuntos;
 GO
 
 PRINT 'Usuario usr_migracion_adjuntos creado y permisos asignados.';
