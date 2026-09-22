@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:sac="urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:udt="urn:un:unece:uncefact:data:specification:UnqualifiedDataTypesSchemaModule:2" xmlns:ccts="urn:un:unece:uncefact:documentation:2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2" xmlns:qdt="urn:oasis:names:specification:ubl:schema:xsd:QualifiedDatatypes-2" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:schemaLocation="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2 ..\xsd\maindoc\UBLPE-Invoice-2.1.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<ext:UBLExtensions>
+<ext:UBLExtension>
+<ext:ExtensionContent>
+<ds:Signature Id="SF040-467421-241219153504"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/><ds:Reference URI=""><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/><ds:DigestValue>Yu/hJm2VmrWsWOwGcWs9Us3d0gU=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>N9NIHgwRBYeNg7lBgzggpq3d8sX/PdA0OM67zH9hXvB2MSGCk3iAZgtw3Z0h8LNfRcN43gyiLQhx
+SDAQZUaGaj0jly7dmIqM+GRKV74xlr8gtm8cLPAqLklmEMI/oavEVk3Rk40r47joGUOtIF7NjHmc
+TMJ3OXl176hW6s/SdN6K7x9qReIsExQnmS2cZfkhwzYW2J++WoGLVMLUNNT+8la3eVmyq4fZAWuk
+m5ZLOc839iAwp9rwZ0sHDKPGhqpmE0FUZu/D3Ez8EWf2ZW6/zHieNzH16WTURDxAO6rq8WNUlwXo
+D8LkisNoxM4m1FAMhjhALz7lgi47UA85IzyqmA==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIHgDCCBmigAwIBAgICAtgwDQYJKoZIhvcNAQELBQAwgZ8xCzAJBgNVBAYTAlBFMRswGQYDVQQK
+ExJBQ0VQVEEgUEVSVSBTLkEuQy4xPTA7BgNVBAMTNEFjZXB0YSBQZXJ1IEF1dG9yaWRhZCBDZXJ0
+aWZpY2Fkb3JhIEVsZWN0cm9uaWNhIC0gVjExHjAcBgkqhkiG9w0BCQEWD2luZm9AYWNlcHRhLmNv
+bTEUMBIGA1UEBRMLMjA1NjI5OTk3MTEwHhcNMjMwOTIyMTgwNDEzWhcNMjYwOTIyMTgwNDEzWjCC
+ATsxCzAJBgNVBAYTAlBFMQ0wCwYDVQQIEwRMaW1hMRMwEQYDVQQHEwpTYW4gSXNpZHJvMSIwIAYD
+VQQJExlDQUwuIEZSQU5DSVNDTyBNQVNJQVMgMzcwMTUwMwYDVQQKEyxMQSBQT1NJVElWQSBTLkEu
+IEVOVElEQUQgUFJFU1RBRE9SQSBERSBTQUxVRDEUMBIGA1UECxMLMjA2MDE5Nzg1NzIxFDASBgNV
+BAsTCzIwNjAxOTc4NTcyMRgwFgYDVQQMEw9HRVJFTlRFIEdFTkVSQUwxIzAhBgNVBAMTGk1JQ0hF
+TCBBTEZJRVJJIEZPUlQgVkFMREVaMS8wLQYJKoZIhvcNAQkBFiBNSUNIRUwuRk9SVEBMQVBPU0lU
+SVZBRVBTLkNPTS5QRTERMA8GA1UEBRMIMTAyNjQ5NzIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAw
+ggEKAoIBAQC5chmGLM19laiy7SVWPIWz73awQW47/CIQU/lz6G1EPRclpvwZGz6qtLZ+7tm25W/u
+Nv/zF7ivNmty3zHMqX7WShXis26gXb+SCdsZXUlL+N0pIgUVG7vhLdtgqSCbsqlC4dTSgLA2EKgq
+TSmTaQFjtjgyZFcx7eUxTgMq+X4lAZvsXJUA+wr+C32itAXsv+GK1DDwFaI9fZBKplRatb6HH/jO
+Poq1+AoWwwwpkMSUIXVbyHK15Py+shZq+nWFHpmZn5N28CWM5GtTcdhc3Nl4j22uqwlqvieT0Xls
+yxm9UTDjGDtyHzQ/vRmOeKi0zDFWHql/fujnJdF2rEC85e3tAgMBAAGjggMlMIIDITAJBgNVHRME
+AjAAMB8GA1UdIwQYMBaAFIElUr2zqo2h/K9ZRjrJ46w2zm7zMB0GA1UdDgQWBBQho/RaTyZyYpmx
+jJQzJrAjyOXf6DALBgNVHQ8EBAMCBsAwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMIIB
+AwYDVR0gBIH7MIH4MIH1BggrBgEEAbVrAjCB6DA3BggrBgEFBQcCARYraHR0cHM6Ly9hY3BldjEu
+YWNlcHRhLnBlL0NQUy1QRS1WMS1BY2VwdGFwZTCBrAYIKwYBBQUHAgIwgZ8wGRYSQUNFUFRBIFBF
+UlUgUy5BLkMuMAMCAQkagYFFbCB0aXR1bGFyIGhhIHNpZG8gdmFsaWRhZG8gZW4gZm9ybWEgcHJl
+c2VuY2lhbCwgcXVlZGFuZG8gaGFiaWxpdGFkbyBlbCBDZXJ0aWZpY2FkbyBwYXJhIHVzbyB0cmli
+dXRhcmlvLCBwYWdvcywgY29tZXJjaW8geSBvdHJvcy4wXAYDVR0SBFUwU6AZBggrBgEEAcEBAqAN
+FgsyMDU2Mjk5OTcxMaAlBggrBgEFBQcIA6AZMBcMCzIwNTYyOTk5NzExBggrBgEEAcEBAoEPaW5m
+b0BhY2VwdGEuY29tMGcGA1UdEQRgMF6gFgYIKwYBBAHBAQGgChYIMTAyNjQ5NzKgIgYIKwYBBQUH
+CAOgFjAUDAgxMDI2NDk3MgYIKwYBBAHBAQKBIE1JQ0hFTC5GT1JUQExBUE9TSVRJVkFFUFMuQ09N
+LlBFMIGSBggrBgEFBQcBAQSBhTCBgjBBBggrBgEFBQcwAoY1aHR0cHM6Ly9hY3BldjEuYWNlcHRh
+LnBlL0VsZWN0cm9uaWNhLVYxLmhpZXJhcmNoeS5wZW0wPQYIKwYBBQUHMAGGMWh0dHBzOi8vYWNw
+ZXYxLmFjZXB0YS5wZS9wZXYxL29jc3AvRWxlY3Ryb25pY2EtVjEwRQYDVR0fBD4wPDA6oDigNoY0
+aHR0cHM6Ly9hY3BldjEuYWNlcHRhLnBlL3BldjEvY3JsL0VsZWN0cm9uaWNhLVYxLmNybDANBgkq
+hkiG9w0BAQsFAAOCAQEARWqJXgYoEvoZ5tAdBxV4EGGEgXkEsClofq0GXBpvjXeRH4jdnaL7nGD1
+GD8biq/NHidaz72BuPDxsymZ9yGX9Wk99HBLIGEEGBnHlDntsC9CMLsSYnkn39DuxfjcxUVrFqkE
+D8xVq2tWFAN55lXYFRMmI6ZK9MRoxAiFvndXpF+i6rv4RCpyGld3eTcMYf5MyFPoEQu1BGOZDdjX
+AJReIs5+uYv0lUR+nTpw1a73C0DU50d9k7BTTPIFtTv4pP7m8zxJ8Zqu0ZAAOyzYC28InvQ4UEPU
+VXnExkWBFAtmZEZiSxXA31MlM+owvqE7BXOI0a7mAkvHWC2PH0iU78Hb/g==</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature></ext:ExtensionContent>
+</ext:UBLExtension>
+<ext:UBLExtension>
+<ext:ExtensionContent>
+<CustomText>
+    <Text name="CorreoCliente"><![CDATA[ANDREA_BIANCHI@AJG.COM]]></Text>
+    <Text name="Telefono"><![CDATA[Teléfono: 211-0211]]></Text>
+    <Text name="URL"><![CDATA[www.lapositiva.com.pe]]></Text>
+    <Text name="EtiquetaCliente"><![CDATA[CONTRATANTE]]></Text>
+    <Text name="Localidad"><![CDATA[TRUJILLO]]></Text>
+    <Text name="Afiliado"><![CDATA[VARIOS ASEGURADOS]]></Text>
+    <Text name="Moneda"><![CDATA[SOLES]]></Text>
+    <Text name="ClaseDocumento"><![CDATA[N° PROFORMA]]></Text>
+    <Text name="NumeroClaseDocumento"><![CDATA[806112362]]></Text>
+    <Text name="PrimaTotal"><![CDATA[498.96]]></Text>
+    <Text name="Oficina"><![CDATA[Trujillo]]></Text>
+    <Text name="Contrato"><![CDATA[620590]]></Text>
+    <Text name="Plan"><![CDATA[SCTR]]></Text>
+    <Text name="FechaInicioVigencia"><![CDATA[06/12/2024]]></Text>
+    <Text name="FechaFinVigencia"><![CDATA[01/01/2025]]></Text>
+    <Text name="InicioProforma"><![CDATA[06/12/2024]]></Text>
+    <Text name="FinProforma"><![CDATA[01/01/2025]]></Text>
+    <Text name="VencimientoPago"><![CDATA[]]></Text>
+    <Text name="CodContratante"><![CDATA[R070950276]]></Text>
+    <Text name="EtiquetaImporte"><![CDATA[IMPORTE TOTAL]]></Text>
+    <Text name="PagWeb"><![CDATA[http://lapositiva.paperless.com.pe/BoletaLaPositivaEPS/]]></Text>
+    <Text name="Referencia"><![CDATA[]]></Text>
+</CustomText>
+</ext:ExtensionContent>
+</ext:UBLExtension>
+</ext:UBLExtensions>
+<cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+<cbc:CustomizationID>2.0</cbc:CustomizationID>
+<cbc:ID>F040-467421</cbc:ID>
+<cbc:IssueDate>2024-12-19</cbc:IssueDate>
+<cbc:InvoiceTypeCode listID="0101">01</cbc:InvoiceTypeCode>
+<cbc:Note languageLocaleID="1000"><![CDATA[QUINIENTOS OCHENTA Y OCHO y 77 /100 Soles]]></cbc:Note>
+<cbc:DocumentCurrencyCode>PEN</cbc:DocumentCurrencyCode>
+<cac:Signature>
+<cbc:ID>SF040-467421</cbc:ID>
+<cac:SignatoryParty>
+<cac:PartyIdentification>
+<cbc:ID>20601978572</cbc:ID>
+</cac:PartyIdentification>
+<cac:PartyName>
+<cbc:Name><![CDATA[SUNAT]]></cbc:Name>
+</cac:PartyName>
+</cac:SignatoryParty>
+<cac:DigitalSignatureAttachment>
+<cac:ExternalReference>
+<cbc:URI>SF040-467421-241219153504</cbc:URI>
+</cac:ExternalReference>
+</cac:DigitalSignatureAttachment>
+</cac:Signature>
+<cac:AccountingSupplierParty>
+<cac:Party>
+<cac:PartyIdentification>
+<cbc:ID schemeID="6">20601978572</cbc:ID>
+</cac:PartyIdentification>
+<cac:PartyName>
+<cbc:Name><![CDATA[LA POSITIVA S.A. EPS]]></cbc:Name>
+</cac:PartyName>
+<cac:PartyLegalEntity>
+<cbc:RegistrationName><![CDATA[LA POSITIVA S.A. ENTIDAD PRESTADORA DE SALUD]]></cbc:RegistrationName>
+<cac:RegistrationAddress>
+<cbc:ID><![CDATA[150118]]></cbc:ID>
+<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>
+<cbc:CityName><![CDATA[LIMA]]></cbc:CityName>
+<cbc:CountrySubentity><![CDATA[LIMA]]></cbc:CountrySubentity>
+<cbc:District><![CDATA[San Isidro]]></cbc:District>
+<cac:AddressLine>
+<cbc:Line><![CDATA[Cal.Francisco Masias 370]]></cbc:Line>
+</cac:AddressLine>
+<cac:Country>
+<cbc:IdentificationCode>PE</cbc:IdentificationCode>
+</cac:Country>
+</cac:RegistrationAddress>
+</cac:PartyLegalEntity>
+</cac:Party>
+</cac:AccountingSupplierParty>
+<cac:AccountingCustomerParty>
+<cac:Party>
+<cac:PartyIdentification>
+<cbc:ID schemeID="6">20481121966</cbc:ID>
+</cac:PartyIdentification>
+<cac:PostalAddress>
+<cbc:District><![CDATA[]]></cbc:District>
+<cac:AddressLine>
+<cbc:Line><![CDATA[JR DIEGO DE ALMAGRO NRO 537]]></cbc:Line>
+</cac:AddressLine>
+<cac:Country>
+<cbc:IdentificationCode>PE</cbc:IdentificationCode>
+</cac:Country>
+</cac:PostalAddress>
+<cac:PartyLegalEntity>
+<cbc:RegistrationName><![CDATA[HASS PERU S.A.]]></cbc:RegistrationName>
+<cac:RegistrationAddress>
+<cbc:ID><![CDATA[]]></cbc:ID>
+<cac:AddressLine>
+<cbc:Line><![CDATA[JR DIEGO DE ALMAGRO NRO 537]]></cbc:Line>
+</cac:AddressLine>
+<cac:Country>
+<cbc:IdentificationCode>PE</cbc:IdentificationCode>
+</cac:Country>
+</cac:RegistrationAddress>
+</cac:PartyLegalEntity>
+</cac:Party>
+</cac:AccountingCustomerParty>
+<cac:PaymentTerms>
+<cbc:ID>FormaPago</cbc:ID>
+<cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>
+</cac:PaymentTerms>
+<cac:TaxTotal>
+<cbc:TaxAmount currencyID="PEN">89.81</cbc:TaxAmount>
+<cac:TaxSubtotal>
+<cbc:TaxableAmount currencyID="PEN">498.96</cbc:TaxableAmount>
+<cbc:TaxAmount currencyID="PEN">89.81</cbc:TaxAmount>
+<cac:TaxCategory>
+<cac:TaxScheme>
+<cbc:ID>1000</cbc:ID>
+<cbc:Name>IGV</cbc:Name>
+<cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+</cac:TaxScheme>
+</cac:TaxCategory>
+</cac:TaxSubtotal>
+</cac:TaxTotal>
+<cac:LegalMonetaryTotal>
+<cbc:LineExtensionAmount currencyID="PEN">498.96</cbc:LineExtensionAmount>
+<cbc:TaxExclusiveAmount currencyID="PEN">0.00</cbc:TaxExclusiveAmount>
+<cbc:TaxInclusiveAmount currencyID="PEN">588.77</cbc:TaxInclusiveAmount>
+<cbc:PayableAmount currencyID="PEN">588.77</cbc:PayableAmount>
+</cac:LegalMonetaryTotal>
+<cac:InvoiceLine>
+<cbc:ID>1</cbc:ID>
+<cbc:InvoicedQuantity unitCode="ZZ">1.00</cbc:InvoicedQuantity>
+<cbc:LineExtensionAmount currencyID="PEN">498.96</cbc:LineExtensionAmount>
+<cac:PricingReference>
+<cac:AlternativeConditionPrice>
+<cbc:PriceAmount currencyID="PEN">588.77</cbc:PriceAmount>
+<cbc:PriceTypeCode>01</cbc:PriceTypeCode>
+</cac:AlternativeConditionPrice>
+</cac:PricingReference>
+<cac:TaxTotal>
+<cbc:TaxAmount currencyID="PEN">89.81</cbc:TaxAmount>
+<cac:TaxSubtotal>
+<cbc:TaxableAmount currencyID="PEN">498.96</cbc:TaxableAmount>
+<cbc:TaxAmount currencyID="PEN">89.81</cbc:TaxAmount>
+<cac:TaxCategory>
+<cbc:ID>S</cbc:ID>
+<cbc:Percent>18.00</cbc:Percent>
+<cbc:TaxExemptionReasonCode>10</cbc:TaxExemptionReasonCode>
+<cac:TaxScheme>
+<cbc:ID>1000</cbc:ID>
+<cbc:Name>IGV</cbc:Name>
+<cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+</cac:TaxScheme>
+</cac:TaxCategory>
+</cac:TaxSubtotal>
+</cac:TaxTotal>
+<cac:Item>
+<cbc:Description><![CDATA[APORTE-FA806112362-SCTR]]></cbc:Description>
+<cac:SellersItemIdentification>
+<cbc:ID>80</cbc:ID>
+</cac:SellersItemIdentification>
+<cac:CommodityClassification>
+<cbc:ItemClassificationCode>84131602</cbc:ItemClassificationCode>
+</cac:CommodityClassification>
+</cac:Item>
+<cac:Price>
+<cbc:PriceAmount currencyID="PEN">498.96</cbc:PriceAmount>
+</cac:Price>
+</cac:InvoiceLine>
+</Invoice>

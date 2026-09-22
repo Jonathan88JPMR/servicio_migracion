@@ -1,0 +1,7 @@
+body { background: #f4f6f9; }
+.navbar-brand { font-weight: 600; }
+.card h6 { font-size: 0.8rem; text-transform: uppercase; color: inherit; }
+.card h3 { margin: 0; }
+table th { white-space: nowrap; }
+#run-output { font-family: Consolas, monospace; font-size: 0.85rem; }
+#log-box { font-family: Consolas, monospace; }
