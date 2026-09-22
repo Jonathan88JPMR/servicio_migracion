@@ -4,10 +4,13 @@ setlocal
 REM ============================================================
 REM Copia el servicio compilado al servidor.
 REM Uso:
-REM   desplegar_servidor.bat \\SERVIDOR\C$\Servicios\servicio_documentos
+REM   desplegar_servidor.bat \\SERVIDOR\C$\Servicios\servicio_documentos [SOLO_EXE]
 REM Ejemplo:
 REM   desplegar_servidor.bat \\172.16.20.3\c$\servicios\servicio_documentos
+REM   desplegar_servidor.bat \\172.16.20.3\c$\servicios\servicio_documentos SOLO_EXE
 REM
+REM Con SOLO_EXE solo reemplaza migrar_prueba.exe y migrar_produccion.exe.
+REM Sin el, tambien copia el lanzador, configs (solo si no existen) y ps1.
 REM No sobrescribe config_modo.bat / config.env si ya existen en
 REM el destino (la configuracion del servidor manda).
 REM ============================================================
@@ -41,6 +44,8 @@ echo [COPIA] Ejecutables...
 copy /Y "%ORIGEN%dist\migrar_prueba.exe" "%DESTINO%\" || exit /b 1
 copy /Y "%ORIGEN%dist\migrar_produccion.exe" "%DESTINO%\" || exit /b 1
 
+if /i "%~2"=="SOLO_EXE" goto :verificar
+
 echo [COPIA] Lanzador y configuracion...
 copy /Y "%ORIGEN%iniciar_servicio_sin_python.bat" "%DESTINO%\" || exit /b 1
 if exist "%DESTINO%\config_modo.bat" (
@@ -59,6 +64,7 @@ copy /Y "%ORIGEN%crear_tarea.ps1" "%DESTINO%\" || exit /b 1
 copy /Y "%ORIGEN%cambiar_modo_tarea.ps1" "%DESTINO%\" || exit /b 1
 copy /Y "%ORIGEN%actualizar_tarea_run_anytime.ps1" "%DESTINO%\" || exit /b 1
 
+:verificar
 echo [VERIFICACION] Archivos en destino:
 dir /B "%DESTINO%\*.exe" "%DESTINO%\*.bat" "%DESTINO%\*.ps1" 2>nul
 
