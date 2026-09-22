@@ -75,6 +75,19 @@ def conectar(connection_string: str) -> pyodbc.Connection:
     return pyodbc.connect(connection_string, timeout=30)
 
 
+def adquirir_bloqueo_instancia(conn: pyodbc.Connection,
+                               nombre: str = "MIGRACION_ADJUNTOS") -> bool:
+    """Bloqueo de aplicacion por sesion (sp_getapplock): evita que dos
+    instancias del servicio corran en paralelo y dupliquen GD_Archivo.
+    Se libera al cerrar la conexion o al terminar el proceso."""
+    row = conn.cursor().execute(
+        "DECLARE @rc INT; EXEC @rc = sp_getapplock @Resource=?,"
+        " @LockMode='Exclusive', @LockOwner='Session', @LockTimeout=0;"
+        " SELECT @rc AS rc", nombre
+    ).fetchone()
+    return bool(row and row[0] >= 0)
+
+
 def obtener_adjuntos_pendientes(conn: pyodbc.Connection, tabla_adjuntos: str, batch: int = 3,
                                 solo: dict | None = None):
     """Devuelve adjuntos sin traslado completado. Batch pequeno para pruebas.
@@ -741,7 +754,7 @@ def migrar_prueba(
 
             etapa_actual = "VALIDAR_DUPLICADO"
             duplicado = conn_gestion.cursor().execute(
-                "SELECT TOP 1 ArchivoId FROM dbo.GD_Archivo WHERE IdGrupo = ? AND RutaArchivo = ?",
+                "SELECT TOP 1 ArchivoId FROM dbo.GD_Archivo WITH (UPDLOCK, HOLDLOCK) WHERE IdGrupo = ? AND RutaArchivo = ?",
                 id_grupo, ruta_destino
             ).fetchone()
             if duplicado:
@@ -958,7 +971,7 @@ def migrar_ap_documento_archivo_prueba(
 
             etapa_actual = "VALIDAR_DUPLICADO"
             duplicado = conn_gestion.cursor().execute(
-                "SELECT TOP 1 ArchivoId FROM dbo.GD_Archivo WHERE IdGrupo = ? AND RutaArchivo = ?",
+                "SELECT TOP 1 ArchivoId FROM dbo.GD_Archivo WITH (UPDLOCK, HOLDLOCK) WHERE IdGrupo = ? AND RutaArchivo = ?",
                 id_grupo, ruta_destino
             ).fetchone()
             if duplicado:
@@ -1044,6 +1057,9 @@ if __name__ == "__main__":
     try:
         with conectar(CONN_MS) as conn_ms, \
              conectar(CONN_SPRING) as conn_spring:
+            if not adquirir_bloqueo_instancia(conn_ms):
+                logging.warning("Otra instancia de migracion esta en ejecucion; esta se omite.")
+                raise SystemExit(0)
             solo = None
             if SOLO_REFERENCIA:
                 obligaciones = obtener_obligaciones_por_referencia(conn_spring, SOLO_REFERENCIA, SOLO_TIPO)
