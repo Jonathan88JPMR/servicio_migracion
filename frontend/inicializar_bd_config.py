@@ -54,8 +54,9 @@ def main():
                 Entorno, Descripcion, MODO_SERVICIO, SERVIDOR_MS_HASS, BD_MS_HASS,
                 SERVIDOR_SPRING, BD_SPRING, RUTA_PRUEBA_LOCAL, RUTA_RAIZ,
                 TIPO_COPIA_PRUEBA, MODO_PRUEBA, BATCH_PRUEBA, BATCH_AP_DOCUMENTO_PRUEBA,
-                TABLA_ADJUNTOS, USUARIO_MIGRACION, SQL_USER, ProduccionHabilitado, Activo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                TABLA_ADJUNTOS, USUARIO_MIGRACION, SQL_USER, FECHA_MINIMA, FECHA_MAXIMA,
+                ProduccionHabilitado, Activo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             'PRUEBA', 'Entorno de pruebas HASS_SPRING_PRUEBA',
             cfg.get('MODO_SERVICIO', 'PRUEBA'),
@@ -72,6 +73,7 @@ def main():
             cfg.get('TABLA_ADJUNTOS', ''),
             cfg.get('USUARIO_MIGRACION', ''),
             cfg.get('SQL_USER', ''),
+            None, None,
             0, 1
         ))
         conn.commit()
@@ -86,8 +88,9 @@ def main():
                 Entorno, Descripcion, MODO_SERVICIO, SERVIDOR_MS_HASS, BD_MS_HASS,
                 SERVIDOR_SPRING, BD_SPRING, RUTA_PRUEBA_LOCAL, RUTA_RAIZ,
                 TIPO_COPIA_PRUEBA, MODO_PRUEBA, BATCH_PRUEBA, BATCH_AP_DOCUMENTO_PRUEBA,
-                TABLA_ADJUNTOS, USUARIO_MIGRACION, SQL_USER, ProduccionHabilitado, Activo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                TABLA_ADJUNTOS, USUARIO_MIGRACION, SQL_USER, FECHA_MINIMA, FECHA_MAXIMA,
+                ProduccionHabilitado, Activo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             'PRODUCCION', 'Entorno de produccion HP_SPRING_PRD',
             'PRODUCCION',
@@ -103,6 +106,7 @@ def main():
             'MS_Archivo',
             'MIGRACION',
             cfg.get('SQL_USER', ''),
+            '2026-09-01', '2026-09-30',
             0, 1
         ))
         conn.commit()

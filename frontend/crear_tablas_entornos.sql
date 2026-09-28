@@ -22,6 +22,8 @@ CREATE TABLE dbo.Entornos_Migracion (
     TABLA_ADJUNTOS            varchar(50),
     USUARIO_MIGRACION         varchar(50),
     SQL_USER                  varchar(100),
+    FECHA_MINIMA              varchar(10),
+    FECHA_MAXIMA              varchar(10),
     ProduccionHabilitado      bit DEFAULT 0,
     Activo                    bit DEFAULT 1,
     FechaRegistro             datetime DEFAULT GETDATE(),

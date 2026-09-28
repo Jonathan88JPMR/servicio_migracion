@@ -68,10 +68,41 @@ Prerequisitos antes de habilitar:
 
 Activación:
 
-1. Recompilar: `build_servicio.bat` y copiar `dist\migrar_produccion.exe` al servidor.
-2. En `Entornos_Migracion`, poner `ProduccionHabilitado = 1` para el entorno PRODUCCION.
-3. En `config.env`: `HABILITAR_PRODUCCION=SI_PRODUCCION`.
-4. `cambiar_modo_tarea.ps1 -Modo PRODUCCION` en el servidor.
-5. Monitorear las primeras corridas desde el dashboard.
+1. En `MS_HASS_PROVEEDOR` ejecutar `preparar_paso_produccion.sql` (cuenta con ALTER/UPDATE):
+   crea las columnas `Entornos_Migracion.FECHA_MINIMA`/`FECHA_MAXIMA`, amplía
+   `CK_MS_ArchivoTraslado_Estado` (`SIN_AP`, `OMITIDO`) y resetea las tablas de
+   control (los COMPLETADO actuales corresponden a HASS_SPRING_PRUEBA).
+   Luego re-ejecutar `api_migracion_documentos/Scripts/01_sp_ms_hass.sql` para
+   que `sp_mig_config` lea/actualice las columnas nuevas.
+2. Ejecutar `python marcar_omitidos_previos.py --ejecutar` (dry-run sin el flag):
+   marca OMITIDO los pendientes fuera del rango `[FECHA_MINIMA, FECHA_MAXIMA]`
+   (misma regla que el servicio). Sin efecto si ambos límites son TODOS.
+
+   El rango `[FECHA_MINIMA, FECHA_MAXIMA]` es parametrizable por entorno
+   (columnas de `Entornos_Migracion`, editables desde el dashboard en
+   Configuración): `YYYY-MM-DD` filtra, `TODOS` = sin límite en ese extremo,
+   `FECHA_MINIMA` vacío = 2026-01-01, `FECHA_MAXIMA` vacío = sin límite.
+
+   Plan de activación por fases (piloto contabilidad):
+   - Fase 1: `FECHA_MINIMA=2026-09-01`, `FECHA_MAXIMA=2026-09-30` → solo
+     setiembre 2026 migra; el resto queda OMITIDO con Etapa='VALIDAR_RANGO'.
+   - Fase 2 (aprobado por contabilidad): ampliar el rango (p.ej.
+     `FECHA_MAXIMA=TODOS` y/o bajar `FECHA_MINIMA`) y reactivar los OMITIDO:
+     `UPDATE dbo.MS_ArchivoTraslado SET Estado='PENDIENTE', Etapa=NULL,
+     MensajeError=NULL WHERE Estado='OMITIDO' AND Etapa='VALIDAR_RANGO'`
+     (idem para `MS_AP_DocumentoArchivoTraslado`). Los COMPLETADO no se tocan.
+
+   Para dejar la base de prueba limpia: `limpiar_todo_prueba.sql` en
+   `HASS_SPRING_PRUEBA` borra todos los GD_Archivo/GD_Grupo creados por
+   MIGRACION (los archivos físicos en `...\PRUEBAS` se borran a mano).
+3. Recompilar: `build_servicio.bat` y copiar `dist\migrar_produccion.exe` al servidor
+   (`desplegar_servidor.bat \\servidor\ruta SOLO_EXE`).
+4. `cambiar_modo_tarea.ps1 -Modo PRODUCCION` en el servidor (deja `config.env`
+   con `HABILITAR_PRODUCCION=NO`; la tarea queda registrada pero bloqueada).
+5. En `Entornos_Migracion`, poner `ProduccionHabilitado = 1` para el entorno PRODUCCION.
+6. Dashboard → Cambiar entorno → PRODUCCION: regenera `config.env` con
+   `HABILITAR_PRODUCCION=SI_PRODUCCION` y `FECHA_MINIMA`, y audita el cambio.
+   (Si luego se reejecuta el paso 4, repetir este paso: el ps1 vuelve a dejar NO.)
+7. Monitorear las primeras corridas desde el dashboard.
 
 Bloqueos de seguridad vigentes: `iniciar_servicio*.bat` exige `PRODUCCION` explícito + `HABILITAR_PRODUCCION=SI_PRODUCCION` + base `HP_SPRING_PRD` + raíz `...\PROD` exacta; el dashboard solo permite ejecutar en modo PRUEBA.

@@ -26,6 +26,55 @@ CLASIFICACION_GATIPO = {
 # AP_Documentos registra el servicio como 'SO'; Spring GD lo muestra como 'OS'.
 TIPO_ORDEN_GD = {"OC": "OC", "SO": "OS", "OS": "OS"}
 
+# Rango de fechas [FECHA_MINIMA, FECHA_MAXIMA] (env): los documentos con fecha
+# de orden/documento fuera del rango quedan OMITIDO. 'TODOS'/'*' desactiva
+# cada limite; FECHA_MINIMA vacia = 2026-01-01; FECHA_MAXIMA vacia = sin limite.
+_raw_fecha_min = os.environ.get("FECHA_MINIMA", "").strip()
+if _raw_fecha_min.upper() in ("TODOS", "*"):
+    FECHA_MINIMA = None
+else:
+    try:
+        FECHA_MINIMA = datetime.strptime(_raw_fecha_min or "2026-01-01", "%Y-%m-%d").date()
+    except ValueError:
+        raise SystemExit("FECHA_MINIMA debe tener formato YYYY-MM-DD o TODOS")
+
+_raw_fecha_max = os.environ.get("FECHA_MAXIMA", "").strip()
+if _raw_fecha_max.upper() in ("TODOS", "*", ""):
+    FECHA_MAXIMA = None
+else:
+    try:
+        FECHA_MAXIMA = datetime.strptime(_raw_fecha_max, "%Y-%m-%d").date()
+    except ValueError:
+        raise SystemExit("FECHA_MAXIMA debe tener formato YYYY-MM-DD o TODOS")
+
+# Override por corrida: la API puede pasar SOLO_FECHA_MINIMA/SOLO_FECHA_MAXIMA
+# (YYYY-MM-DD o TODOS) para ejecutar un rango sin tocar la config del entorno;
+# el bat recarga FECHA_* desde el config, por eso se usan claves aparte.
+_solo_min = os.environ.get("SOLO_FECHA_MINIMA", "").strip()
+if _solo_min:
+    if _solo_min.upper() in ("TODOS", "*"):
+        FECHA_MINIMA = None
+    else:
+        try:
+            FECHA_MINIMA = datetime.strptime(_solo_min, "%Y-%m-%d").date()
+        except ValueError:
+            raise SystemExit("SOLO_FECHA_MINIMA debe tener formato YYYY-MM-DD o TODOS")
+_solo_max = os.environ.get("SOLO_FECHA_MAXIMA", "").strip()
+if _solo_max:
+    if _solo_max.upper() in ("TODOS", "*"):
+        FECHA_MAXIMA = None
+    else:
+        try:
+            FECHA_MAXIMA = datetime.strptime(_solo_max, "%Y-%m-%d").date()
+        except ValueError:
+            raise SystemExit("SOLO_FECHA_MAXIMA debe tener formato YYYY-MM-DD o TODOS")
+
+
+def _a_fecha(valor):
+    """Normaliza datetime/date a date para comparar con el rango de migracion."""
+    return valor.date() if isinstance(valor, datetime) else valor
+
+
 # ---------------------------------------------------------------------------
 # Script de PRUEBA para validar el flujo de migracion de adjuntos del portal.
 # No marca FlagTraslado ni escribe en GD_Grupo/GD_Archivo a menos que se fuerce.
@@ -133,14 +182,15 @@ def obtener_obligaciones_por_referencia(
 ) -> set:
     """Devuelve las obligaciones (proveedor, tipo, numero) relacionadas a una OC/OS."""
     sql = """
-        SELECT DISTINCT RTRIM(Proveedor), RTRIM(ObligacionTipoDocumento),
+        SELECT DISTINCT CAST(Proveedor AS VARCHAR(20)),
+               RTRIM(ObligacionTipoDocumento),
                RTRIM(ObligacionNumeroDocumento)
         FROM AP_Documentos
-        WHERE ReferenciaNumeroDocumento = ?
+        WHERE RTRIM(ReferenciaNumeroDocumento) = ?
     """
     params = [numero_referencia]
     if tipo_referencia:
-        sql += " AND ReferenciaTipoDocumento = ?"
+        sql += " AND RTRIM(ReferenciaTipoDocumento) = ?"
         params.append(tipo_referencia)
     rows = conn_spring.cursor().execute(sql, params).fetchall()
     return {
@@ -167,9 +217,9 @@ def obtener_ap_documento_por_obligacion(
             DocumentoClasificacion,
             DocumentoReferencia
         FROM AP_Documentos
-        WHERE Proveedor = ?
-          AND ObligacionTipoDocumento = ?
-          AND ObligacionNumeroDocumento = ?
+        WHERE CAST(Proveedor AS VARCHAR(20)) = ?
+          AND RTRIM(ObligacionTipoDocumento) = ?
+          AND RTRIM(ObligacionNumeroDocumento) = ?
     """
     return conn_spring.cursor().execute(sql, proveedor, tipo_obligacion, numero_obligacion).fetchone()
 
@@ -190,8 +240,8 @@ def obtener_ap_documento_por_referencia(
             DocumentoClasificacion,
             DocumentoReferencia
         FROM AP_Documentos
-        WHERE ReferenciaTipoDocumento = ?
-          AND ReferenciaNumeroDocumento = ?
+        WHERE RTRIM(ReferenciaTipoDocumento) = ?
+          AND RTRIM(ReferenciaNumeroDocumento) = ?
     """
     return conn_spring.cursor().execute(sql, tipo_doc, numero_doc).fetchone()
 
@@ -274,9 +324,9 @@ def obtener_datos_orden(conn_spring: pyodbc.Connection, tipo: str | None,
     if not numero:
         return proveedor, None
     if tipo == "OC":
-        sql = "SELECT TOP 1 Proveedor, FechaPreparacion FROM dbo.WH_OrdenCompra WHERE NumeroOrden = ?"
+        sql = "SELECT TOP 1 Proveedor, FechaPreparacion FROM dbo.WH_OrdenCompra WHERE RTRIM(NumeroOrden) = ?"
     elif tipo in ("SO", "OS"):
-        sql = "SELECT TOP 1 Proveedor, FechaDocumento FROM dbo.Compromiso WHERE NumeroCompromiso = ?"
+        sql = "SELECT TOP 1 Proveedor, FechaDocumento FROM dbo.Compromiso WHERE RTRIM(NumeroCompromiso) = ?"
     else:
         return proveedor, None
     params: list = [numero]
@@ -436,7 +486,7 @@ def plantilla_ruta_por_compania(conn_spring: pyodbc.Connection, compania_socio: 
     sql_tipo = """
         SELECT TOP 1 RutaArchivo
         FROM AP_Documentos
-        WHERE CompaniaSocio = ? AND RutaArchivo IS NOT NULL AND ReferenciaTipoDocumento = ?
+        WHERE RTRIM(CompaniaSocio) = ? AND RutaArchivo IS NOT NULL AND RTRIM(ReferenciaTipoDocumento) = ?
     """
     row = conn_spring.cursor().execute(sql_tipo, compania_socio, referencia_tipo).fetchone()
     if not row and referencia_tipo is not None:
@@ -715,6 +765,25 @@ def migrar_prueba(
                 logging.warning("[PRUEBA][%s][%s] %s IdArchivo=%s", etapa_actual, estado, msg, id_archivo)
                 continue
             info = enriquecer_info_orden(conn_spring, info)
+            if FECHA_MINIMA is not None or FECHA_MAXIMA is not None:
+                etapa_actual = "VALIDAR_RANGO"
+                f_ref = _a_fecha(info.get("fecha_orden") or info.get("fecha"))
+                if f_ref is None:
+                    if escritura:
+                        actualizar_control(conn_ms, id_archivo, "ERROR", etapa_actual,
+                                           "Sin fecha de orden/documento para validar el rango de migracion",
+                                           None, None, None)
+                    omitidos += 1
+                    logging.warning("[PRUEBA][%s][ERROR] Sin fecha para IdArchivo=%s", etapa_actual, id_archivo)
+                    continue
+                if (FECHA_MINIMA is not None and f_ref < FECHA_MINIMA) or \
+                   (FECHA_MAXIMA is not None and f_ref > FECHA_MAXIMA):
+                    msg = f"Fecha {f_ref} fuera del rango {FECHA_MINIMA or '-inf'}..{FECHA_MAXIMA or '+inf'}"
+                    if escritura:
+                        actualizar_control(conn_ms, id_archivo, "OMITIDO", etapa_actual, msg, None, None, None)
+                    omitidos += 1
+                    logging.warning("[PRUEBA][%s][OMITIDO] %s IdArchivo=%s", etapa_actual, msg, id_archivo)
+                    continue
             logging.info("[PRUEBA][%s] Tipo=%s Numero=%s Proveedor=%s FechaOrden=%s RazonSocial=%s",
                          etapa_actual, info["tipo"], info["numero"], info.get("proveedor_id"),
                          info.get("fecha_orden"), info.get("razon_social"))
@@ -931,6 +1000,25 @@ def migrar_ap_documento_archivo_prueba(
                 "referencia": ap.DocumentoReferencia.strip() if ap.DocumentoReferencia else None
             }
             info = enriquecer_info_orden(conn_spring, info)
+            if FECHA_MINIMA is not None or FECHA_MAXIMA is not None:
+                etapa_actual = "VALIDAR_RANGO"
+                f_ref = _a_fecha(info.get("fecha_orden") or info.get("fecha"))
+                if f_ref is None:
+                    if escritura:
+                        actualizar_control_ap(conn_ms, id_ap, gatipo, "ERROR", etapa_actual,
+                                              "Sin fecha de orden/documento para validar el rango de migracion",
+                                              None, None, None)
+                    omitidos += 1
+                    logging.warning("[PRUEBA][AP][%s][ERROR] Sin fecha para IdAp=%s", etapa_actual, id_ap)
+                    continue
+                if (FECHA_MINIMA is not None and f_ref < FECHA_MINIMA) or \
+                   (FECHA_MAXIMA is not None and f_ref > FECHA_MAXIMA):
+                    msg = f"Fecha {f_ref} fuera del rango {FECHA_MINIMA or '-inf'}..{FECHA_MAXIMA or '+inf'}"
+                    if escritura:
+                        actualizar_control_ap(conn_ms, id_ap, gatipo, "OMITIDO", etapa_actual, msg, None, None, None)
+                    omitidos += 1
+                    logging.warning("[PRUEBA][AP][%s][OMITIDO] %s IdAp=%s", etapa_actual, msg, id_ap)
+                    continue
             logging.info("[PRUEBA][AP][%s] Tipo=%s Numero=%s Proveedor=%s Compania=%s FechaOrden=%s RazonSocial=%s Ruta=%s",
                          etapa_actual, info["tipo"], info["numero"], info.get("proveedor_id"),
                          info["compania"], info.get("fecha_orden"), info.get("razon_social"), info["ruta_unc"])

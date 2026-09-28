@@ -13,7 +13,62 @@ import pyodbc
 #     DescripcionLarga = razon social (PersonaMast), LastFlag='S', GrupoTipo=1.
 #   - GD_Archivo: Codigo='WH', ValorTexto1 = tipo de orden (OC/SO).
 #   - Control y reintentos: MS_ArchivoTraslado / MS_AP_DocumentoArchivoTraslado.
+#   - Rango de fechas: solo se migran documentos con fecha de orden/documento
+#     dentro de [FECHA_MINIMA, FECHA_MAXIMA] (env); los fuera de rango quedan
+#     OMITIDO. 'TODOS'/'*' desactiva cada limite por separado.
+#     FECHA_MINIMA vacia = 2026-01-01; FECHA_MAXIMA vacia = sin limite.
+#     Ej. solo setiembre 2026: FECHA_MINIMA=2026-09-01 FECHA_MAXIMA=2026-09-30.
 # ---------------------------------------------------------------------------
+
+
+class FueraDeRango(Exception):
+    """Documento con fecha de orden/documento fuera de [FECHA_MINIMA, FECHA_MAXIMA]."""
+
+
+def _a_fecha(valor):
+    """Normaliza datetime/date a date para comparar con el rango de migracion."""
+    return valor.date() if isinstance(valor, datetime) else valor
+
+
+_raw_fecha_min = os.environ.get("FECHA_MINIMA", "").strip()
+if _raw_fecha_min.upper() in ("TODOS", "*"):
+    FECHA_MINIMA = None
+else:
+    try:
+        FECHA_MINIMA = datetime.strptime(_raw_fecha_min or "2026-01-01", "%Y-%m-%d").date()
+    except ValueError:
+        raise SystemExit("FECHA_MINIMA debe tener formato YYYY-MM-DD o TODOS")
+
+_raw_fecha_max = os.environ.get("FECHA_MAXIMA", "").strip()
+if _raw_fecha_max.upper() in ("TODOS", "*", ""):
+    FECHA_MAXIMA = None
+else:
+    try:
+        FECHA_MAXIMA = datetime.strptime(_raw_fecha_max, "%Y-%m-%d").date()
+    except ValueError:
+        raise SystemExit("FECHA_MAXIMA debe tener formato YYYY-MM-DD o TODOS")
+
+# Override por corrida: la API puede pasar SOLO_FECHA_MINIMA/SOLO_FECHA_MAXIMA
+# (YYYY-MM-DD o TODOS) para ejecutar un rango sin tocar la config del entorno;
+# el bat recarga FECHA_* desde el config, por eso se usan claves aparte.
+_solo_min = os.environ.get("SOLO_FECHA_MINIMA", "").strip()
+if _solo_min:
+    if _solo_min.upper() in ("TODOS", "*"):
+        FECHA_MINIMA = None
+    else:
+        try:
+            FECHA_MINIMA = datetime.strptime(_solo_min, "%Y-%m-%d").date()
+        except ValueError:
+            raise SystemExit("SOLO_FECHA_MINIMA debe tener formato YYYY-MM-DD o TODOS")
+_solo_max = os.environ.get("SOLO_FECHA_MAXIMA", "").strip()
+if _solo_max:
+    if _solo_max.upper() in ("TODOS", "*"):
+        FECHA_MAXIMA = None
+    else:
+        try:
+            FECHA_MAXIMA = datetime.strptime(_solo_max, "%Y-%m-%d").date()
+        except ValueError:
+            raise SystemExit("SOLO_FECHA_MAXIMA debe tener formato YYYY-MM-DD o TODOS")
 
 PLANTILLAS_CACHE: dict[tuple[str, str | None], list[str] | None] = {}
 MESES_ES = {
@@ -126,7 +181,7 @@ def obtener_adjuntos_pendientes(conn: pyodbc.Connection, tabla_adjuntos: str,
           AND (t.IdArchivo IS NULL OR t.Estado IN ('PENDIENTE', 'ERROR')
                OR (t.Estado = 'SIN_AP' AND t.FechaUltimoIntento < DATEADD(hour, -24, GETDATE())))
           {extra}
-        ORDER BY a.FechaCreacion, a.IdArchivo
+        ORDER BY a.FechaCreacion DESC, a.IdArchivo DESC
     """
     return conn.cursor().execute(sql, params).fetchall()
 
@@ -159,7 +214,7 @@ def obtener_adjuntos_ap_pendientes(conn: pyodbc.Connection, batch: int = 100,
           AND (t.IdApDocumentoArchivo IS NULL OR t.Estado IN ('PENDIENTE', 'ERROR')
                OR (t.Estado = 'SIN_AP' AND t.FechaUltimoIntento < DATEADD(hour, -24, GETDATE())))
           {extra}
-        ORDER BY a.IdApDocumentoArchivo
+        ORDER BY a.IdApDocumentoArchivo DESC
     """
     return conn.cursor().execute(sql, params).fetchall()
 
@@ -168,14 +223,15 @@ def obtener_obligaciones_por_referencia(conn_spring: pyodbc.Connection,
                                         numero_referencia: str,
                                         tipo_referencia: str | None = None) -> set:
     sql = """
-        SELECT DISTINCT RTRIM(Proveedor), RTRIM(ObligacionTipoDocumento),
+        SELECT DISTINCT CAST(Proveedor AS VARCHAR(20)),
+               RTRIM(ObligacionTipoDocumento),
                RTRIM(ObligacionNumeroDocumento)
         FROM AP_Documentos
-        WHERE ReferenciaNumeroDocumento = ?
+        WHERE RTRIM(ReferenciaNumeroDocumento) = ?
     """
     params = [numero_referencia]
     if tipo_referencia:
-        sql += " AND ReferenciaTipoDocumento = ?"
+        sql += " AND RTRIM(ReferenciaTipoDocumento) = ?"
         params.append(tipo_referencia)
     rows = conn_spring.cursor().execute(sql, params).fetchall()
     return {
@@ -193,7 +249,9 @@ def obtener_ap_documento_por_obligacion(conn_spring, proveedor, tipo_obligacion,
             ReferenciaTipoDocumento, ReferenciaNumeroDocumento, RutaArchivo,
             Proveedor, CompaniaSocio, Fecha, DocumentoClasificacion, DocumentoReferencia
         FROM AP_Documentos
-        WHERE Proveedor = ? AND ObligacionTipoDocumento = ? AND ObligacionNumeroDocumento = ?
+        WHERE CAST(Proveedor AS VARCHAR(20)) = ?
+          AND RTRIM(ObligacionTipoDocumento) = ?
+          AND RTRIM(ObligacionNumeroDocumento) = ?
     """
     return conn_spring.cursor().execute(sql, proveedor, tipo_obligacion, numero_obligacion).fetchone()
 
@@ -204,7 +262,7 @@ def obtener_ap_documento_por_referencia(conn_spring, tipo_doc: str, numero_doc: 
             ReferenciaTipoDocumento, ReferenciaNumeroDocumento, RutaArchivo,
             Proveedor, CompaniaSocio, Fecha, DocumentoClasificacion, DocumentoReferencia
         FROM AP_Documentos
-        WHERE ReferenciaTipoDocumento = ? AND ReferenciaNumeroDocumento = ?
+        WHERE RTRIM(ReferenciaTipoDocumento) = ? AND RTRIM(ReferenciaNumeroDocumento) = ?
     """
     return conn_spring.cursor().execute(sql, tipo_doc, numero_doc).fetchone()
 
@@ -263,9 +321,9 @@ def obtener_datos_orden(conn_spring: pyodbc.Connection, tipo: str | None,
     if not numero:
         return proveedor, None
     if tipo == "OC":
-        sql = "SELECT TOP 1 Proveedor, FechaPreparacion FROM dbo.WH_OrdenCompra WHERE NumeroOrden = ?"
+        sql = "SELECT TOP 1 Proveedor, FechaPreparacion FROM dbo.WH_OrdenCompra WHERE RTRIM(NumeroOrden) = ?"
     elif tipo in ("SO", "OS"):
-        sql = "SELECT TOP 1 Proveedor, FechaDocumento FROM dbo.Compromiso WHERE NumeroCompromiso = ?"
+        sql = "SELECT TOP 1 Proveedor, FechaDocumento FROM dbo.Compromiso WHERE RTRIM(NumeroCompromiso) = ?"
     else:
         return proveedor, None
     params: list = [numero]
@@ -327,7 +385,7 @@ def plantilla_ruta_por_compania(conn_spring: pyodbc.Connection, compania_socio: 
         return PLANTILLAS_CACHE[cache_key]
     sql_tipo = """
         SELECT TOP 1 RutaArchivo FROM AP_Documentos
-        WHERE CompaniaSocio = ? AND RutaArchivo IS NOT NULL AND ReferenciaTipoDocumento = ?
+        WHERE RTRIM(CompaniaSocio) = ? AND RutaArchivo IS NOT NULL AND RTRIM(ReferenciaTipoDocumento) = ?
     """
     row = conn_spring.cursor().execute(sql_tipo, compania_socio, referencia_tipo).fetchone()
     if not row and referencia_tipo is not None:
@@ -617,6 +675,14 @@ def _procesar_adjunto(conn_ms, conn_spring, conn_gestion, ruta_raiz_prod: str,
                       usuario: str, clasificacion: str | None):
     """Ejecuta el flujo completo. Devuelve (id_grupo, ruta_destino, archivo_id)."""
     info = enriquecer_info_orden(conn_spring, info)
+    if FECHA_MINIMA is not None or FECHA_MAXIMA is not None:
+        fecha_ref = _a_fecha(info.get("fecha_orden") or info.get("fecha"))
+        if fecha_ref is None:
+            raise ValueError("Sin fecha de orden/documento para validar el rango de migracion")
+        if FECHA_MINIMA is not None and fecha_ref < FECHA_MINIMA:
+            raise FueraDeRango(f"Fecha {fecha_ref} anterior al corte {FECHA_MINIMA}")
+        if FECHA_MAXIMA is not None and fecha_ref > FECHA_MAXIMA:
+            raise FueraDeRango(f"Fecha {fecha_ref} posterior al limite {FECHA_MAXIMA}")
     logging.info("[RESOLVER] Tipo=%s Numero=%s Proveedor=%s FechaOrden=%s RazonSocial=%s",
                  info["tipo"], info["numero"], info.get("proveedor_id"),
                  info.get("fecha_orden"), info.get("razon_social"))
@@ -697,6 +763,13 @@ def migrar(conn_ms, conn_spring, conn_gestion, tabla_adjuntos: str,
             actualizar_control(conn_ms, id_archivo, "COMPLETADO", "COMPLETADO", None, ruta_destino, id_grupo, archivo_id)
             exitosos += 1
             logging.info("[EXITOSO] IdArchivo=%s -> %s (IdGrupo=%s, ArchivoId=%s)", id_archivo, ruta_destino, id_grupo, archivo_id)
+        except FueraDeRango as ex:
+            omitidos += 1
+            logging.info("[OMITIDO] IdArchivo=%s %s", id_archivo, ex)
+            try:
+                actualizar_control(conn_ms, id_archivo, "OMITIDO", "VALIDAR_RANGO", str(ex), None, None, None)
+            except Exception:
+                actualizar_control(conn_ms, id_archivo, "ERROR", "VALIDAR_RANGO", str(ex), None, None, None)
         except Exception as ex:
             fallidos += 1
             msg = str(ex)
@@ -750,6 +823,13 @@ def migrar_ap_documento_archivo(conn_ms, conn_spring, conn_gestion,
             actualizar_control_ap(conn_ms, id_ap, gatipo, "COMPLETADO", "COMPLETADO", None, ruta_destino, id_grupo, archivo_id)
             exitosos += 1
             logging.info("[AP][EXITOSO] IdAp=%s -> %s (IdGrupo=%s, ArchivoId=%s)", id_ap, ruta_destino, id_grupo, archivo_id)
+        except FueraDeRango as ex:
+            omitidos += 1
+            logging.info("[AP][OMITIDO] IdAp=%s %s", id_ap, ex)
+            try:
+                actualizar_control_ap(conn_ms, id_ap, gatipo, "OMITIDO", "VALIDAR_RANGO", str(ex), None, None, None)
+            except Exception:
+                actualizar_control_ap(conn_ms, id_ap, gatipo, "ERROR", "VALIDAR_RANGO", str(ex), None, None, None)
         except Exception as ex:
             fallidos += 1
             msg = str(ex)
@@ -789,6 +869,8 @@ if __name__ == "__main__":
 
     logging.info("=" * 60)
     logging.info("INICIO DE MIGRACION DE ADJUNTOS - PRODUCCION")
+    logging.info(f"Rango de migracion: {FECHA_MINIMA or 'sin minimo'} .. "
+                 f"{FECHA_MAXIMA or 'sin limite'} (fuera de rango -> OMITIDO)")
     logging.info(f"Tabla de adjuntos: {TABLA_ADJUNTOS}")
     logging.info(f"Usuario migracion: {USUARIO}")
     logging.info(f"Ruta raiz: {RUTA_RAIZ_PROD}")
