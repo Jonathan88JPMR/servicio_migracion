@@ -2,10 +2,28 @@ import os
 import re
 import sys
 import logging
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
 import pyodbc
+
+
+class AdjuntoVacio(Exception):
+    """Adjunto de origen con contenido vacio (0 bytes): no se escribe ni registra."""
+
+
+def _normalizar_nombre(nombre: str) -> str:
+    """Normaliza el nombre a NFC para que coincida el archivo fisico con
+    RutaArchivo (varchar cp1252): si el origen viene en NFD (acento separado),
+    SQL Server guarda '´' suelto y la ruta registrada no apunta al archivo.
+    Caracteres fuera de cp1252 se simplifican a '_'."""
+    n = unicodedata.normalize("NFC", nombre or "archivo")
+    try:
+        n.encode("cp1252")
+        return n
+    except UnicodeEncodeError:
+        return n.encode("cp1252", errors="replace").decode("cp1252").replace("?", "_")
 
 PLANTILLAS_CACHE: dict[tuple[str, str | None], list[str] | None] = {}
 MESES_ES = {
@@ -143,23 +161,29 @@ def obtener_adjuntos_pendientes(conn: pyodbc.Connection, tabla_adjuntos: str, ba
     Con 'solo' se limita a los adjuntos relacionados a una OC/OS."""
     params: list = []
     extra = ""
+    filtro_estado = """
+          AND (t.IdArchivo IS NULL OR t.Estado IN ('PENDIENTE', 'ERROR')
+               OR (t.Estado = 'SIN_AP' AND t.FechaUltimoIntento < DATEADD(hour, -24, GETDATE())))
+"""
     if solo is not None:
         conds = []
         if solo["tipo"] in (None, "OC"):
-            conds.append("(a.Tabla = 'WH_OrdenCompra' AND a.Id = ?)")
+            conds.append("(RTRIM(a.Tabla) = 'WH_OrdenCompra' AND RTRIM(a.Id) = ?)")
             params.append(solo["numero"])
         if solo["tipo"] in (None, "SO"):
-            conds.append("(a.Tabla = 'Compromiso' AND a.Id = ?)")
+            conds.append("(RTRIM(a.Tabla) = 'Compromiso' AND RTRIM(a.Id) = ?)")
             params.append(solo["numero"])
         ids_obl = sorted(f"{p}|{t}|{n}" for p, t, n in solo["obligaciones"])
         if ids_obl:
             marks = ",".join("?" * len(ids_obl))
-            conds.append(f"(a.Tabla = 'Obligaciones' AND a.Id IN ({marks}))")
+            conds.append(f"(RTRIM(a.Tabla) = 'Obligaciones' AND RTRIM(a.Id) IN ({marks}))")
             params.extend(ids_obl)
         if not conds:
             return []
         extra = " AND (" + " OR ".join(conds) + ")"
         batch = max(batch, 100000)
+        # Ejecucion por orden especifica: permitir reprocesar OMITIDO y SIN_AP
+        filtro_estado = "          AND (t.IdArchivo IS NULL OR t.Estado != 'COMPLETADO')\n"
     sql = f"""
         SELECT TOP {batch}
             a.IdArchivo, a.Id, a.Tabla, a.Nombre, a.Tipo, a.Contenido, a.Empresa,
@@ -167,8 +191,7 @@ def obtener_adjuntos_pendientes(conn: pyodbc.Connection, tabla_adjuntos: str, ba
         FROM {tabla_adjuntos} AS a
         LEFT JOIN dbo.MS_ArchivoTraslado AS t ON t.IdArchivo = a.IdArchivo
         WHERE a.Contenido IS NOT NULL
-          AND (t.IdArchivo IS NULL OR t.Estado IN ('PENDIENTE', 'ERROR')
-               OR (t.Estado = 'SIN_AP' AND t.FechaUltimoIntento < DATEADD(hour, -24, GETDATE())))
+          {filtro_estado}
           {extra}
         ORDER BY a.FechaCreacion, a.IdArchivo
     """
@@ -188,10 +211,10 @@ def obtener_obligaciones_por_referencia(
         FROM AP_Documentos
         WHERE RTRIM(ReferenciaNumeroDocumento) = ?
     """
-    params = [numero_referencia]
+    params = [(numero_referencia or "").strip()]
     if tipo_referencia:
         sql += " AND RTRIM(ReferenciaTipoDocumento) = ?"
-        params.append(tipo_referencia)
+        params.append((tipo_referencia or "").strip())
     rows = conn_spring.cursor().execute(sql, params).fetchall()
     return {
         (str(r[0]).strip(), str(r[1]).strip(), str(r[2]).strip())
@@ -221,6 +244,8 @@ def obtener_ap_documento_por_obligacion(
           AND RTRIM(ObligacionTipoDocumento) = ?
           AND RTRIM(ObligacionNumeroDocumento) = ?
     """
+    tipo_obligacion = (tipo_obligacion or "").strip()
+    numero_obligacion = (numero_obligacion or "").strip()
     return conn_spring.cursor().execute(sql, proveedor, tipo_obligacion, numero_obligacion).fetchone()
 
 
@@ -243,6 +268,8 @@ def obtener_ap_documento_por_referencia(
         WHERE RTRIM(ReferenciaTipoDocumento) = ?
           AND RTRIM(ReferenciaNumeroDocumento) = ?
     """
+    tipo_doc = (tipo_doc or "").strip()
+    numero_doc = (numero_doc or "").strip()
     return conn_spring.cursor().execute(sql, tipo_doc, numero_doc).fetchone()
 
 
@@ -250,7 +277,7 @@ def resolver_oc_os(conn_spring: pyodbc.Connection, tabla: str, id_registro: str)
     """Devuelve (tipo, numero, ruta_unc, proveedor, compania) o None."""
 
     if tabla == "Obligaciones":
-        partes = id_registro.split("|")
+        partes = [p.strip() for p in id_registro.split("|")]
         if len(partes) != 3:
             logging.warning(f"Id de Obligaciones no tiene formato esperado: {id_registro}")
             return None
@@ -331,8 +358,8 @@ def obtener_datos_orden(conn_spring: pyodbc.Connection, tipo: str | None,
         return proveedor, None
     params: list = [numero]
     if proveedor is not None:
-        sql += " AND Proveedor = ?"
-        params.append(proveedor)
+        sql += " AND CAST(Proveedor AS VARCHAR(20)) = ?"
+        params.append(str(proveedor))
     row = conn_spring.cursor().execute(sql, params).fetchone()
     if not row:
         return proveedor, None
@@ -395,19 +422,20 @@ def buscar_grupo_ruta(conn_gestion: pyodbc.Connection, jerarquia: list[str],
     padre = None
     recorrido = []
     for nivel, descripcion in enumerate(jerarquia, start=1):
+        descripcion = (descripcion or "").strip()
         es_ultimo = nivel == len(jerarquia)
         if padre is None:
             sql = """
                 SELECT TOP 1 IdGrupo, Orden
                 FROM dbo.GD_Grupo
-                WHERE IdGrupoPadre IS NULL AND NivelGrupo = ? AND Descripcion = ? AND Estado = 'A'
+                WHERE IdGrupoPadre IS NULL AND NivelGrupo = ? AND RTRIM(Descripcion) = ? AND Estado = 'A'
             """
             row = conn_gestion.cursor().execute(sql, nivel, descripcion).fetchone()
         elif es_ultimo and persona is not None:
             sql = """
                 SELECT TOP 1 IdGrupo, Orden
                 FROM dbo.GD_Grupo
-                WHERE IdGrupoPadre = ? AND NivelGrupo = ? AND Descripcion = ? AND Estado = 'A'
+                WHERE IdGrupoPadre = ? AND NivelGrupo = ? AND RTRIM(Descripcion) = ? AND Estado = 'A'
                   AND (Persona = ? OR Persona IS NULL OR Persona = 0)
                 ORDER BY CASE WHEN Persona = ? THEN 0 ELSE 1 END
             """
@@ -416,7 +444,7 @@ def buscar_grupo_ruta(conn_gestion: pyodbc.Connection, jerarquia: list[str],
             sql = """
                 SELECT TOP 1 IdGrupo, Orden
                 FROM dbo.GD_Grupo
-                WHERE IdGrupoPadre = ? AND NivelGrupo = ? AND Descripcion = ? AND Estado = 'A'
+                WHERE IdGrupoPadre = ? AND NivelGrupo = ? AND RTRIM(Descripcion) = ? AND Estado = 'A'
             """
             row = conn_gestion.cursor().execute(sql, padre, nivel, descripcion).fetchone()
         recorrido.append((nivel, descripcion, row[0] if row else None, row[1] if row else None))
@@ -442,13 +470,14 @@ def construir_destino_prueba(ruta_prueba: str, jerarquia: list[str], nombre: str
 
 
 def _generar_nombre_unico(destino: str, contenido: bytes) -> str:
-    """Genera un nombre alternativo cuando el archivo destino ya existe y tiene contenido distinto."""
+    """Genera un nombre alternativo cuando el archivo destino ya existe y tiene contenido distinto.
+    Un candidato existente de 0 bytes se considera placeholder vacio y se reutiliza."""
     carpeta, nombre = os.path.split(destino)
     base, ext = os.path.splitext(nombre)
     contador = 1
     while True:
         candidato = os.path.join(carpeta, f"{base}_{contador:03d}{ext}")
-        if not os.path.exists(candidato):
+        if not os.path.exists(candidato) or os.path.getsize(candidato) == 0:
             return candidato
         with open(candidato, "rb") as f:
             if f.read() == contenido:
@@ -458,9 +487,10 @@ def _generar_nombre_unico(destino: str, contenido: bytes) -> str:
 
 def guardar_archivo_prueba(destino: str, contenido: bytes) -> tuple[str, int, bool]:
     """Crea la estructura de carpetas, guarda el archivo si no existe o es distinto,
-    y verifica su tamano. Retorna (ruta_final, tamano, fue_escrito)."""
+    y verifica su tamano. Retorna (ruta_final, tamano, fue_escrito).
+    Un destino existente de 0 bytes se considera placeholder vacio y se sobrescribe."""
     os.makedirs(os.path.dirname(destino), exist_ok=True)
-    if os.path.exists(destino):
+    if os.path.exists(destino) and os.path.getsize(destino) > 0:
         with open(destino, "rb") as f:
             existente = f.read()
         if existente == contenido:
@@ -490,12 +520,10 @@ def plantilla_ruta_por_compania(conn_spring: pyodbc.Connection, compania_socio: 
     """
     row = conn_spring.cursor().execute(sql_tipo, compania_socio, referencia_tipo).fetchone()
     if not row and referencia_tipo is not None:
-        sql_any = """
-            SELECT TOP 1 RutaArchivo
-            FROM AP_Documentos
-            WHERE CompaniaSocio = ? AND RutaArchivo IS NOT NULL
-        """
-        row = conn_spring.cursor().execute(sql_any, compania_socio).fetchone()
+        row = conn_spring.cursor().execute(
+            "SELECT TOP 1 RutaArchivo FROM AP_Documentos WHERE RTRIM(CompaniaSocio) = ? AND RutaArchivo IS NOT NULL",
+            compania_socio
+        ).fetchone()
     if not row:
         PLANTILLAS_CACHE[cache_key] = None
         return None
@@ -607,8 +635,8 @@ def buscar_o_crear_jerarquia_gd_grupo(
         # Revisar raiz con IdGrupoPadre IS NULL
         cursor = conn_gestion.cursor()
         raiz = cursor.execute(
-            "SELECT TOP 1 IdGrupo, Orden FROM dbo.GD_Grupo WHERE IdGrupoPadre IS NULL AND NivelGrupo = 1 AND Descripcion = ? AND Estado = 'A'",
-            jerarquia[0]
+            "SELECT TOP 1 IdGrupo, Orden FROM dbo.GD_Grupo WHERE IdGrupoPadre IS NULL AND NivelGrupo = 1 AND RTRIM(Descripcion) = ? AND Estado = 'A'",
+            (jerarquia[0] or "").strip()
         ).fetchone()
         if raiz:
             padre = raiz[0]
@@ -746,6 +774,9 @@ def migrar_prueba(
         etapa_actual = "INICIO"
         try:
             logging.info("[PRUEBA][INICIO] IdArchivo=%s Empresa=%s Tabla=%s Id=%s Nombre=%s MIME=%s EstadoControl=%s Intentos=%s", id_archivo, empresa, tabla, id_registro, nombre, tipo, estado, intentos)
+            if not contenido:
+                raise AdjuntoVacio(f"Adjunto de origen vacio (0 bytes): {nombre}")
+            nombre = _normalizar_nombre(nombre)
             if escritura:
                 upsert_control_inicio(conn_ms, id_archivo, "PROCESANDO", etapa_actual)
 
@@ -851,6 +882,11 @@ def migrar_prueba(
             logging.info("[PRUEBA][%s] Registro IdArchivo=%s finalizado", "ESCRITURA" if escritura else "SIMULACION", id_archivo)
             exitosos += 1
 
+        except AdjuntoVacio as ex:
+            omitidos += 1
+            logging.warning("[PRUEBA][%s][SIN_CONTENIDO] IdArchivo=%s %s", etapa_actual, id_archivo, ex)
+            if escritura:
+                actualizar_control(conn_ms, id_archivo, "SIN_CONTENIDO", etapa_actual, str(ex), None, None, None)
         except Exception as ex:
             fallidos += 1
             msg = str(ex)
@@ -872,6 +908,10 @@ def obtener_adjuntos_ap_pendientes(conn: pyodbc.Connection, batch: int = 3,
     Con 'obligaciones' se limita a las obligaciones relacionadas a una OC/OS."""
     params: list = []
     extra = ""
+    filtro_estado = """
+          AND (t.IdApDocumentoArchivo IS NULL OR t.Estado IN ('PENDIENTE', 'ERROR')
+               OR (t.Estado = 'SIN_AP' AND t.FechaUltimoIntento < DATEADD(hour, -24, GETDATE())))
+"""
     if obligaciones is not None:
         if not obligaciones:
             return []
@@ -883,6 +923,8 @@ def obtener_adjuntos_ap_pendientes(conn: pyodbc.Connection, batch: int = 3,
         extra = f" AND ({conds})"
         params = [p for c in sorted(obligaciones) for p in c]
         batch = max(batch, 100000)
+        # Ejecucion por orden especifica: permitir reprocesar OMITIDO y SIN_AP
+        filtro_estado = "          AND (t.IdApDocumentoArchivo IS NULL OR t.Estado != 'COMPLETADO')\n"
     sql = f"""
         SELECT TOP {batch}
             a.IdApDocumentoArchivo, a.Proveedor, a.ObligacionTipoDocumento,
@@ -892,8 +934,7 @@ def obtener_adjuntos_ap_pendientes(conn: pyodbc.Connection, batch: int = 3,
         LEFT JOIN dbo.MS_AP_DocumentoArchivoTraslado AS t
           ON t.IdApDocumentoArchivo = a.IdApDocumentoArchivo
         WHERE a.Gadatos IS NOT NULL
-          AND (t.IdApDocumentoArchivo IS NULL OR t.Estado IN ('PENDIENTE', 'ERROR')
-               OR (t.Estado = 'SIN_AP' AND t.FechaUltimoIntento < DATEADD(hour, -24, GETDATE())))
+          {filtro_estado}
           {extra}
         ORDER BY a.IdApDocumentoArchivo
     """
@@ -951,7 +992,8 @@ def migrar_ap_documento_archivo_prueba(
     tipo_copia: str,
     escritura: bool,
     batch: int = int(os.environ.get("BATCH_AP_DOCUMENTO_PRUEBA", os.environ.get("BATCH_PRUEBA", "3"))),
-    solo_obligaciones: set | None = None
+    solo_obligaciones: set | None = None,
+    solo_referencia: bool = False
 ):
     try:
         adjuntos = obtener_adjuntos_ap_pendientes(conn_ms, batch, solo_obligaciones)
@@ -975,6 +1017,9 @@ def migrar_ap_documento_archivo_prueba(
         try:
             logging.info("[PRUEBA][AP][INICIO] IdAp=%s Proveedor=%s Obligacion=%s|%s Gatipo=%s Nombre=%s Estado=%s Intentos=%s",
                          id_ap, proveedor, tipo_obligacion, numero_obligacion, gatipo, ganombre, estado, intentos)
+            if not gadatos:
+                raise AdjuntoVacio(f"Adjunto de origen vacio (0 bytes): {ganombre}")
+            ganombre = _normalizar_nombre(ganombre)
             if escritura:
                 upsert_control_inicio_ap(conn_ms, id_ap, gatipo, "PROCESANDO", etapa_actual)
 
@@ -1000,7 +1045,7 @@ def migrar_ap_documento_archivo_prueba(
                 "referencia": ap.DocumentoReferencia.strip() if ap.DocumentoReferencia else None
             }
             info = enriquecer_info_orden(conn_spring, info)
-            if FECHA_MINIMA is not None or FECHA_MAXIMA is not None:
+            if not solo_referencia and (FECHA_MINIMA is not None or FECHA_MAXIMA is not None):
                 etapa_actual = "VALIDAR_RANGO"
                 f_ref = _a_fecha(info.get("fecha_orden") or info.get("fecha"))
                 if f_ref is None:
@@ -1088,6 +1133,11 @@ def migrar_ap_documento_archivo_prueba(
             logging.info("[PRUEBA][AP][%s] Registro IdAp=%s finalizado", "ESCRITURA" if escritura else "SIMULACION", id_ap)
             exitosos += 1
 
+        except AdjuntoVacio as ex:
+            omitidos += 1
+            logging.warning("[PRUEBA][AP][%s][SIN_CONTENIDO] IdAp=%s %s", etapa_actual, id_ap, ex)
+            if escritura:
+                actualizar_control_ap(conn_ms, id_ap, gatipo, "SIN_CONTENIDO", etapa_actual, str(ex), None, None, None)
         except Exception as ex:
             fallidos += 1
             msg = str(ex)
@@ -1156,7 +1206,8 @@ if __name__ == "__main__":
                              SOLO_TIPO or "OC/OS", SOLO_REFERENCIA, len(obligaciones))
             migrar_prueba(conn_ms, conn_spring, conn_spring, TABLA_ADJUNTOS, EMPRESA_NOMBRE, USUARIO, RUTA_PRUEBA, TIPO_COPIA_PRUEBA, ESCRITURA, solo=solo)
             migrar_ap_documento_archivo_prueba(conn_ms, conn_spring, conn_spring, EMPRESA_NOMBRE, USUARIO, RUTA_PRUEBA, TIPO_COPIA_PRUEBA, ESCRITURA,
-                                               solo_obligaciones=solo["obligaciones"] if solo else None)
+                                               solo_obligaciones=solo["obligaciones"] if solo else None,
+                                               solo_referencia=solo is not None)
     except Exception as ex:
         logging.error("[PRUEBA][CONEXION][FALLIDO] No se pudo iniciar la prueba: %s", ex, exc_info=True)
         raise SystemExit(1)
